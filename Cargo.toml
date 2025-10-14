@@ -2,9 +2,12 @@
 name = "ev3-dc"
 version = "0.1.0"
 edition = "2024"
+default-run = "ev3-dc"
 
 [dependencies]
-hidapi = { version = "2.6.3", optional = true }
+hidapi = "2.6.3"
 
 [features]
-usb = [ "hidapi" ]
+
+[[bin]]
+name = "assembler"

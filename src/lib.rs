@@ -1,10 +1,6 @@
 use std::num::IntErrorKind;
-mod libs;
-
-pub enum CommandType {
-    Reply,
-    NoReply,
-}
+pub mod utils;
+pub mod parser;
 
 pub enum DataType {
     DATA8,
@@ -37,10 +33,14 @@ pub enum Encoding {
 
 pub struct Command {
     pub id: u16,
-    pub cmd_type: CommandType,
+    pub reply: bool,
     allocation: u16,
     pub bytecode: Vec<u8>,
 }
+
+// Constants
+pub const VID: u16 = 0x0694;
+pub const PID: u16 = 0x0005;
 
 #[allow(non_snake_case)]
 pub struct Port {
@@ -53,13 +53,14 @@ pub struct Port {
 pub const PORT: Port = Port { A: 1, B: 2, C: 4, D: 8 };
 
 impl Command {
+    pub fn new() -> Self { Command::default() }
     /// Generate direct command bytecode
     pub fn gen_bytes(&self) -> Vec<u8> {
         let mut packet: Vec<u8> = vec![0x00, 0x00];
         packet.extend(self.id.to_le_bytes());
-        packet.push(match self.cmd_type {
-            CommandType::Reply => 0x00,
-            CommandType::NoReply => 0x80,
+        packet.push(match self.reply {
+            true => 0x00,
+            false => 0x80,
         });
         packet.extend(self.allocation.to_le_bytes());
         packet.extend(&self.bytecode);
@@ -67,6 +68,11 @@ impl Command {
         packet[0] = ln[0];
         packet[1] = ln[1];
         packet
+    }
+    /// Get reserved bytes
+    /// Can be use to initialized response buffer, with length of `5 + command.reserved_bytes()`.
+    pub fn reserved_bytes(&self) -> usize {
+        ((self.allocation >> 10) + (self.allocation & ((1 << 10) - 1))) as usize
     }
 }
 
@@ -88,7 +94,7 @@ impl Parameter {
             Encoding::GV0(val) | Encoding::LV0(val) => {
                 if val > 31 { return Err(IntErrorKind::PosOverflow) }
                 head += 1 << 6;
-                if let Encoding::GV1(_) = encoding { head += 1 << 5; }
+                if let Encoding::GV0(_) = encoding { head += 1 << 5; }
                 head += val & 0b11111;
             }
             Encoding::LCS(_) => {
@@ -143,36 +149,36 @@ impl Parameter {
 
 impl Command {
     /// Create variable bytecode and allocate space
-    /// `glob` - Allocate global variable
-    pub fn allocate(&mut self, data: DataType, glob: bool) -> Result<Vec<u8>, IntErrorKind> {
+    /// `global` - Allocate global variable
+    pub fn allocate(&mut self, data: DataType, global: bool) -> Result<Vec<u8>, IntErrorKind> {
         let local: u8 = (self.allocation >> 10) as u8;
-        let global: u16 = self.allocation & ((1 << 10) - 1);
-        let address: u16 = if glob { local.into() } else { global };
+        let glob: u16 = self.allocation & ((1 << 10) - 1);
+        let address: u16 = if global { local.into() } else { glob };
         let mem: u16 = match data {
-            DataType::DATA8 => 8,
-            DataType::DATA16 => 16,
-            DataType::DATA32 | DataType::DATAF => 32,
+            DataType::DATA8 => 1,
+            DataType::DATA16 => 2,
+            DataType::DATA32 | DataType::DATAF => 4,
         };
         if local + (mem as u8) > (1 << 6) - 1 { return Err(IntErrorKind::PosOverflow) }
-        if global + mem > (1 << 10) - 1 { return Err(IntErrorKind::PosOverflow) }
-        self.allocation += if glob { mem } else { mem << 10 };
+        if glob + mem > (1 << 10) - 1 { return Err(IntErrorKind::PosOverflow) }
+        self.allocation += if global { mem } else { mem << 10 };
         match address {
             0..=31 => {
-                if glob {
+                if global {
                     Parameter::encode(Encoding::GV0(address as u8))
                 } else {
                     Parameter::encode(Encoding::LV0(address as u8))
                 }
             }
             32..=254 => {
-                if glob {
+                if global {
                     Parameter::encode(Encoding::GV1(address as u8))
                 } else {
                     Parameter::encode(Encoding::LV1(address as u8))
                 }
             }
             _ => {
-                if glob {
+                if global {
                     Parameter::encode(Encoding::GV2(address))
                 } else {
                     Parameter::encode(Encoding::LV2(address))
@@ -186,7 +192,7 @@ impl Default for Command {
     fn default() -> Self {
         Command {
             id: 170,
-            cmd_type: CommandType::Reply,
+            reply: true, 
             allocation: 0,
             bytecode: vec![],
         }
