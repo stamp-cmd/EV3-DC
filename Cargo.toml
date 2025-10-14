@@ -1,0 +1,10 @@
+[package]
+name = "ev3-dc"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+hidapi = { version = "2.6.3", optional = true }
+
+[features]
+usb = [ "hidapi" ]
