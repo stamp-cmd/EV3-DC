@@ -7,7 +7,7 @@ pub struct ChainByte {
     pub bytes: Vec<u8>
 }
 
-const LEN_MAX: u16 = 1000;
+const LEN_MAX: u16 = 1000; // LIMIT: Practical limit is 1000 for some reason.
 
 /// Chainable byte vector
 // maybe use velcro or vek instead
@@ -33,14 +33,13 @@ pub fn package_bytes(bytecodes: &[Vec<u8>]) -> Vec<Vec<u8>> {
     let mut buffer: Vec<u8> = vec![];
     let mut size: u16 = 0;
     for bytes in bytecodes {
-       if size + (bytes.len() as u16) < LEN_MAX {
-            buffer.extend(bytes);
-            size += bytes.len() as u16;
-       }else {
+       if size + (bytes.len() as u16) > LEN_MAX {
             packets.push(buffer.clone()); // seems expensive
             buffer.clear();
             size = 0;
-       } 
+        }
+        buffer.extend(bytes);
+        size += bytes.len() as u16;
     }
     packets.push(buffer);
     packets
@@ -78,11 +77,17 @@ pub fn printer(lines: &[(u8, u8, u8, u8)]) -> Vec<Vec<u8>> {
     let mut packets: Vec<Vec<u8>> = vec![];
     for line in lines {
         let mut bytecode = ChainByte::new();
-        bytecode.add(vec![0x84, 0x03, 0x01])
-            .add(encode(LC2(line.0 as i16)).unwrap())
-            .add(encode(LC2(line.1 as i16)).unwrap())
-            .add(encode(LC2(line.2 as i16)).unwrap())
-            .add(encode(LC2(line.3 as i16)).unwrap());
+        if line.0 == line.2 {
+            bytecode.add(vec![0x84, 0x02, 0x01])
+                .add(encode(LC2(line.0 as i16)).unwrap())
+                .add(encode(LC2(line.1 as i16)).unwrap());
+        }else {
+            bytecode.add(vec![0x84, 0x03, 0x01])
+                .add(encode(LC2(line.0 as i16)).unwrap())
+                .add(encode(LC2(line.1 as i16)).unwrap())
+                .add(encode(LC2(line.2 as i16)).unwrap())
+                .add(encode(LC2(line.3 as i16)).unwrap());
+        }
         packets.push(bytecode.bytes);
     }
     packets
