@@ -1,6 +1,7 @@
 use std::num::IntErrorKind;
 pub mod utils;
 pub mod parser;
+pub mod image;
 
 pub enum DataType {
     DATA8,
@@ -12,7 +13,7 @@ pub enum DataType {
 /// LCx: Local constant value
 /// LVx: Local variable address
 /// GVx: Global variable address
-pub enum Encoding {
+pub enum Encoding<'a> {
     /// LC0 only allow values from -31 to 31
     LC0(i8),
     LC1(i8),
@@ -28,9 +29,9 @@ pub enum Encoding {
     GV1(u8),
     GV2(u16),
     GV4(u32),
-    LCS(String),
+    LCS(&'a str),
 }
-
+/// The packet that get sent to EV3
 pub struct Command {
     pub id: u16,
     pub reply: bool,
@@ -48,9 +49,10 @@ pub struct Port {
     pub B: u8,
     pub C: u8,
     pub D: u8,
+    pub ALL: u8
 }
-
-pub const PORT: Port = Port { A: 1, B: 2, C: 4, D: 8 };
+/// PORT Constants. Add them together to use multiple ports
+pub const PORT: Port = Port { A: 1, B: 2, C: 4, D: 8, ALL: 15};
 
 impl Command {
     pub fn new() -> Self { Command::default() }
@@ -76,75 +78,72 @@ impl Command {
     }
 }
 
-pub struct Parameter {}
-impl Parameter {
-    /// Encode value to parameter encoding.
-    /// Use for encoding constant value or encoding address to variable directly.
-    /// Use `Command::allocate` if you don't want to track current stack address.
-    pub fn encode(encoding: Encoding) -> Result<Vec<u8>, IntErrorKind> {
-        let mut bytes: Vec<u8> = vec![];
-        let mut head: u8 = 0;
-        match encoding {
-            Encoding::LC0(val) => {
-                if val > 31 { return Err(IntErrorKind::PosOverflow) }
-                if val < -31 { return Err(IntErrorKind::NegOverflow) }
-                if val < 0 { head += 1 << 5;}
-                head += (val.abs() & 0b11111) as u8
-            }
-            Encoding::GV0(val) | Encoding::LV0(val) => {
-                if val > 31 { return Err(IntErrorKind::PosOverflow) }
-                head += 1 << 6;
-                if let Encoding::GV0(_) = encoding { head += 1 << 5; }
-                head += val & 0b11111;
-            }
-            Encoding::LCS(_) => {
-                head += 0b10000100;
-            }
-            _ => { head += 1 << 7; }
+/// Encode value to parameter encoding.
+/// Use for encoding constant value or encoding address to variable directly.
+/// Use `Command::allocate` if you don't want to track current stack address.
+pub fn encode(encoding: Encoding) -> Result<Vec<u8>, IntErrorKind> {
+let mut bytes: Vec<u8> = vec![];
+    let mut head: u8 = 0;
+    match encoding {
+        Encoding::LC0(val) => {
+            if val > 31 { return Err(IntErrorKind::PosOverflow) }
+            if val < -31 { return Err(IntErrorKind::NegOverflow) }
+            if val < 0 { head += 1 << 5;}
+            head += (val.abs() & 0b11111) as u8
         }
-        bytes.push(head);
-        let res: Result<Vec<u8>, IntErrorKind> = match encoding {
-            Encoding::LC1(val) => { 
-                head += 1;
-                if val == i8::MIN { return Err(IntErrorKind::NegOverflow) }
-                if val < 0 { head += 1 << 5; }
-                Ok((val.abs() & i8::MAX).to_le_bytes().to_vec())
-            }
-            Encoding::LC2(val) => {
-                head += 2;
-                if val == i16::MIN { return Err(IntErrorKind::NegOverflow) }
-                if val < 0 { head += 1 << 5; }
-                Ok((val.abs() & i16::MAX).to_le_bytes().to_vec())
-            }
-            Encoding::LC4(val) => {
-                head += 3;
-                if val == i32::MIN { return Err(IntErrorKind::NegOverflow) }
-                if val < 0 { head += 1 << 5; }
-                Ok((val.abs() & i32::MAX).to_le_bytes().to_vec())
-            }
-            Encoding::LV1(val) | Encoding::GV1(val) => {
-                head += (1 << 5) + 1;
-                Ok(val.to_le_bytes().to_vec())
-            }
-            Encoding::LV2(val) | Encoding::GV2(val) => {
-                head += (1 << 5) + 2;
-                Ok(val.to_le_bytes().to_vec())
-            }
-            Encoding::LV4(val) | Encoding::GV4(val) => {
-                head += (1 << 5) + 3;
-                Ok(val.to_le_bytes().to_vec())
-            }
-            Encoding::LCS(val) => {
-                let mut tmp = val.as_bytes().to_vec();
-                tmp.push(0);
-                Ok(tmp)
-            }
-            _ => Ok(vec![]),
-        };
-        bytes.extend(res?);
-        bytes[0] = head;
-        Ok(bytes)
+        Encoding::GV0(val) | Encoding::LV0(val) => {
+            if val > 31 { return Err(IntErrorKind::PosOverflow) }
+            head += 1 << 6;
+            if let Encoding::GV0(_) = encoding { head += 1 << 5; }
+            head += val & 0b11111;
+        }
+        Encoding::LCS(_) => {
+            head += 0b10000100;
+        }
+        _ => { head += 1 << 7; }
     }
+    bytes.push(head);
+    let res: Result<Vec<u8>, IntErrorKind> = match encoding {
+        Encoding::LC1(val) => { 
+            head += 1;
+            if val == i8::MIN { return Err(IntErrorKind::NegOverflow) }
+            if val < 0 { head += 1 << 5; }
+            Ok((val.abs() & i8::MAX).to_le_bytes().to_vec())
+        }
+        Encoding::LC2(val) => {
+            head += 2;
+            if val == i16::MIN { return Err(IntErrorKind::NegOverflow) }
+            if val < 0 { head += 1 << 5; }
+            Ok((val.abs() & i16::MAX).to_le_bytes().to_vec())
+        }
+        Encoding::LC4(val) => {
+            head += 3;
+            if val == i32::MIN { return Err(IntErrorKind::NegOverflow) }
+            if val < 0 { head += 1 << 5; }
+            Ok((val.abs() & i32::MAX).to_le_bytes().to_vec())
+        }
+        Encoding::LV1(val) | Encoding::GV1(val) => {
+            head += (1 << 5) + 1;
+            Ok(val.to_le_bytes().to_vec())
+        }
+        Encoding::LV2(val) | Encoding::GV2(val) => {
+            head += (1 << 5) + 2;
+            Ok(val.to_le_bytes().to_vec())
+        }
+        Encoding::LV4(val) | Encoding::GV4(val) => {
+            head += (1 << 5) + 3;
+            Ok(val.to_le_bytes().to_vec())
+        }
+        Encoding::LCS(val) => {
+            let mut tmp = val.as_bytes().to_vec();
+            tmp.push(0);
+            Ok(tmp)
+        }
+        _ => Ok(vec![]),
+    };
+    bytes.extend(res?);
+    bytes[0] = head;
+    Ok(bytes)
 }
 
 impl Command {
@@ -165,23 +164,23 @@ impl Command {
         match address {
             0..=31 => {
                 if global {
-                    Parameter::encode(Encoding::GV0(address as u8))
+                    encode(Encoding::GV0(address as u8))
                 } else {
-                    Parameter::encode(Encoding::LV0(address as u8))
+                    encode(Encoding::LV0(address as u8))
                 }
             }
             32..=254 => {
                 if global {
-                    Parameter::encode(Encoding::GV1(address as u8))
+                    encode(Encoding::GV1(address as u8))
                 } else {
-                    Parameter::encode(Encoding::LV1(address as u8))
+                    encode(Encoding::LV1(address as u8))
                 }
             }
             _ => {
                 if global {
-                    Parameter::encode(Encoding::GV2(address))
+                    encode(Encoding::GV2(address))
                 } else {
-                    Parameter::encode(Encoding::LV2(address))
+                    encode(Encoding::LV2(address))
                 }
             }
         }
