@@ -47,7 +47,7 @@ pub fn package_bytes(bytecodes: &[Vec<u8>]) -> Vec<Vec<u8>> {
 
 /// Run-Length-Encoding on 1D 178x128 image array.
 /// Return (x1, y1, x2, y2) line.
-pub fn run_length(image: &[u8; 178 * 128]) -> Vec<(u8, u8, u8, u8)> {
+pub fn run_length(image: &[u8]) -> Vec<(u8, u8, u8, u8)> {
     let mut state;
     let mut buffer: Vec<(u8, u8, u8, u8)> = vec![];
     let mut line: (u8, u8, u8, u8) = (0, 0, 0, 0);
@@ -73,6 +73,7 @@ pub fn run_length(image: &[u8; 178 * 128]) -> Vec<(u8, u8, u8, u8)> {
     buffer
 }
 
+/// Convert vector of points from `run_length` to direct commands
 pub fn printer(lines: &[(u8, u8, u8, u8)]) -> Vec<Vec<u8>> {
     let mut packets: Vec<Vec<u8>> = vec![];
     for line in lines {

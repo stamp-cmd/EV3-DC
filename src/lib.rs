@@ -7,31 +7,32 @@ pub enum DataType {
     DATA8,
     DATA16,
     DATA32,
-    DATAF,
+    DATAF
 }
 
 /// LCx: Local constant value
 /// LVx: Local variable address
 /// GVx: Global variable address
+/// GV4 & LV4 are unusable in direct command
 pub enum Encoding<'a> {
     /// LC0 only allow values from -31 to 31
     LC0(i8),
     LC1(i8),
     LC2(i16),
     LC4(i32),
+    LCF(f32),
     /// LV0 only allow value up to 31
     LV0(u8),
     LV1(u8),
     LV2(u16),
-    LV4(u32),
-    // GV0 only allow value up to 31
+    /// GV0 only allow value up to 31
     GV0(u8),
     GV1(u8),
     GV2(u16),
-    GV4(u32),
     LCS(&'a str),
 }
 /// The packet that get sent to EV3
+/// Can contain more than 1 OpCode
 pub struct Command {
     pub id: u16,
     pub reply: bool,
@@ -45,11 +46,11 @@ pub const PID: u16 = 0x0005;
 
 #[allow(non_snake_case)]
 pub struct Port {
-    pub A: u8,
-    pub B: u8,
-    pub C: u8,
-    pub D: u8,
-    pub ALL: u8
+    pub A: i8,
+    pub B: i8,
+    pub C: i8,
+    pub D: i8,
+    pub ALL: i8
 }
 /// PORT Constants. Add them together to use multiple ports
 pub const PORT: Port = Port { A: 1, B: 2, C: 4, D: 8, ALL: 15};
@@ -75,6 +76,11 @@ impl Command {
     /// Can be use to initialized response buffer, with length of `5 + command.reserved_bytes()`.
     pub fn reserved_bytes(&self) -> usize {
         ((self.allocation >> 10) + (self.allocation & ((1 << 10) - 1))) as usize
+    }
+    /// Free all allocated memory
+    /// MAKE SURE YOUR BYTECODE DOES NOT CONTAIN VARIABLES
+    pub fn free_mem(&mut self) {
+        self.allocation = 0;
     }
 }
 
@@ -130,14 +136,14 @@ let mut bytes: Vec<u8> = vec![];
             head += (1 << 5) + 2;
             Ok(val.to_le_bytes().to_vec())
         }
-        Encoding::LV4(val) | Encoding::GV4(val) => {
-            head += (1 << 5) + 3;
-            Ok(val.to_le_bytes().to_vec())
-        }
         Encoding::LCS(val) => {
             let mut tmp = val.as_bytes().to_vec();
             tmp.push(0);
             Ok(tmp)
+        }
+        Encoding::LCF(val) => {
+            head += 3;
+            Ok(val.to_le_bytes().to_vec())
         }
         _ => Ok(vec![]),
     };
