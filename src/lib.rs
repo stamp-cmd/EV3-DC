@@ -1,7 +1,6 @@
 use std::num::IntErrorKind;
 pub mod utils;
 pub mod parser;
-pub mod image;
 
 pub enum DataType {
     DATA8,
