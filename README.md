@@ -38,5 +38,5 @@ println!("RECV: {:?} | SIZE: {}, ID: {}, ERROR: {}, MEMORY: {}", buf, rep.length
 ## Binary
  - `bin/image.rs` Display 178x128 [PBM](https://en.wikipedia.org/wiki/Netpbm#PBM_example) image on EV3 screen
     ```bash
-    cargo run --bin image.rs example.pbm
+    cargo run --bin image example.pbm
     ```

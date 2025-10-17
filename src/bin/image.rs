@@ -53,7 +53,10 @@ fn main() {
     for pack in packed {
         cmd.bytecode = pack;
         comm(&cmd.gen_bytes(), &mut buf, &dev);
+        // refresh every packet
         cmd.bytecode = vec![0x84, 0x00];
         comm(&cmd.gen_bytes(), &mut buf, &dev);
     }
+    // cmd.bytecode = vec![0x84, 0x00]; 
+    // comm(&cmd.gen_bytes(), &mut buf, &dev);
 }
