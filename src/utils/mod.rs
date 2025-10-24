@@ -1,6 +1,6 @@
 //! Visualization / utilities functions for ev3-dc
 
-use super::{ Encoding::*, encode };
+use super::{ Encoding::*, encode, ValError };
 
 #[derive(Default)]
 pub struct ChainByte {
@@ -47,7 +47,8 @@ pub fn package_bytes(bytecodes: &[Vec<u8>]) -> Vec<Vec<u8>> {
 
 /// Run-Length-Encoding on 1D 178x128 image array.
 /// Return (x1, y1, x2, y2) line.
-pub fn run_length(image: &[u8]) -> Vec<(u8, u8, u8, u8)> {
+pub fn run_length(image: &[u8]) -> Result<Vec<(u8, u8, u8, u8)>, ValError> {
+    if image.len() != (178 * 128) { return Err(ValError::InvalidValue(image.len() as i32, 178 * 128)) } 
     let mut state;
     let mut buffer: Vec<(u8, u8, u8, u8)> = vec![];
     let mut line: (u8, u8, u8, u8) = (0, 0, 0, 0);
@@ -70,7 +71,7 @@ pub fn run_length(image: &[u8]) -> Vec<(u8, u8, u8, u8)> {
             }
         }
     }
-    buffer
+    Ok(buffer)
 }
 
 /// Convert vector of points from `run_length` to direct commands
@@ -92,4 +93,30 @@ pub fn printer(lines: &[(u8, u8, u8, u8)]) -> Vec<Vec<u8>> {
         packets.push(bytecode.bytes);
     }
     packets
+}
+
+/// Return name of device id
+pub fn device_id(byte: u8) -> String {
+    String::from(match byte {
+        7 => "Large-Motor",
+        8 => "Medium-Motor",
+        16 => "Touch-Sensor",
+        29 => "Color-Sensor",
+        30 => "Ultrasonic-Sensor",
+        32 => "Gyro-Sensor",
+        33 => "IR-Sensor",
+        126 => "None",
+        127 => "Port-Error",
+        _ => todo!("ID: {} Unimplemented!", byte) // For now, only support EV3 devices
+    })
+}
+
+/// Read port from u8 slice. 0-3 are inputs, 4-7 are outputs
+pub fn port_read(port: &[u8], layer: u8) -> Result<[u8; 8], ValError> {
+    let mut ports = [0_u8; 8];
+    if layer > 3 { return Err(ValError::InvalidRange(layer as i32, 0, 3)) }
+    if port.len() < (20 + (layer * 4)) as usize { return Err(ValError::InvalidRange(port.len() as i32, (20 + (layer * 4)) as i32, 32)); }
+    ports[0..4].copy_from_slice(&port[((layer * 4) as usize)..(((layer + 1) * 4) as usize)]);
+    ports[4..8].copy_from_slice(&port[(16 + (layer * 4) as usize)..(16 + ((layer + 1) * 4) as usize)]);
+    Ok(ports)
 }

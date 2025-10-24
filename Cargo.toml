@@ -6,6 +6,7 @@ default-run = "ev3-dc"
 
 [dependencies]
 hidapi = "2.6.3" 
+thiserror = "2.0.17"
 
 [features]
 

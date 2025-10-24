@@ -32,7 +32,7 @@ fn main() {
     }
     buffer.clear();
     let _ = reader.read_to_string(&mut buffer);
-    let image: Vec<u8> = buffer.split("").map(|x| { match x { "1" => 1, "0" => 0, _ => 2 } }).filter(|x| { x != &2 }).collect();
+    let image: Vec<u8> = buffer.split("").map(|x| { match x { "1" => 1, "0" => 0, _ => 2 } }).filter(|x| { *x != 2 }).collect();
     println!("{}", image.len());
     let hid = HidApi::new().expect("Cannot create HID context!");
     let dev = hid.open(VID, PID).unwrap_or_else(|_| { panic!("Device with VID: {} & PID: {} not found!", VID, PID) });
@@ -47,16 +47,16 @@ fn main() {
         .add(encode(LC0(0)).unwrap());
     cmd.bytecode = byte.bytes;
     comm(&cmd.gen_bytes(), &mut buf, &dev);
-    let lines = run_length(&image);
+    let lines = run_length(&image).unwrap();
     let packets = printer(&lines);
     let packed = package_bytes(&packets);
     for pack in packed {
         cmd.bytecode = pack;
         comm(&cmd.gen_bytes(), &mut buf, &dev);
         // refresh every packet
-        cmd.bytecode = vec![0x84, 0x00];
-        comm(&cmd.gen_bytes(), &mut buf, &dev);
+        // cmd.bytecode = vec![0x84, 0x00];
+        // comm(&cmd.gen_bytes(), &mut buf, &dev);
     }
-    // cmd.bytecode = vec![0x84, 0x00]; 
-    // comm(&cmd.gen_bytes(), &mut buf, &dev);
+    cmd.bytecode = vec![0x84, 0x00]; 
+    comm(&cmd.gen_bytes(), &mut buf, &dev);
 }

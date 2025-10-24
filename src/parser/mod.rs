@@ -1,4 +1,5 @@
 //! Module for parsing direct reply
+use crate::DataType;
 
 pub struct Reply {
     length: u16,
@@ -20,4 +21,14 @@ impl Reply {
     pub fn id(&self) -> u16 { self.id }
     pub fn error(&self) -> bool { self.error }
     pub fn memory(&self) -> &Vec<u8> { &self.memory }
+}
+
+pub fn extract_data<T: Iterator<Item = u8>>(bytes: T, dtype: DataType) -> Vec<u8> {
+    let len = match dtype {
+        DataType::DATA8 => 1,
+        DataType::DATA16 => 2,
+        DataType::DATA32 | DataType::DATAF => 4,
+        DataType::DATAN(length) => length
+    };
+    bytes.take(len).collect::<Vec<u8>>()
 }

@@ -1,12 +1,15 @@
-use std::num::IntErrorKind;
+//! Core crate
+use thiserror::Error;
 pub mod utils;
 pub mod parser;
+pub mod funcs;
 
 pub enum DataType {
     DATA8,
     DATA16,
     DATA32,
-    DATAF
+    DATAF,
+    DATAN(usize) // Custom length allocation
 }
 
 /// LCx: Local constant value
@@ -54,6 +57,22 @@ pub struct Port {
 /// PORT Constants. Add them together to use multiple ports
 pub const PORT: Port = Port { A: 1, B: 2, C: 4, D: 8, ALL: 15};
 
+#[derive(Error, Debug)]
+pub enum ValError {
+    /// Error for encoding
+    #[error("Encode error: value: {0} overflowed (maximum: {1})")]
+    PosOverflow(u32, u32),
+    #[error("Encode error: value: {0} overflowed (minimum: {1})")]
+    NegOverflow(i32, i32),
+    /// Error for functions
+    #[error("Allocation error: cannot allocate data with sized {0}. Allocated {3} memory: {1} / {2}")]
+    MemOverflow(u16, u16, u16, String),
+    #[error("Invalid range: expect {1} - {2}, got {0}")]
+    InvalidRange(i32, i32, i32),
+    #[error("Invalid value: expect {1}, got {0}")]
+    InvalidValue(i32, i32)
+}
+
 impl Command {
     pub fn new() -> Self { Command::default() }
     /// Generate direct command bytecode
@@ -77,8 +96,9 @@ impl Command {
         ((self.allocation >> 10) + (self.allocation & ((1 << 10) - 1))) as usize
     }
     /// Free all allocated memory
-    /// MAKE SURE YOUR BYTECODE DOES NOT CONTAIN VARIABLES
-    pub fn free_mem(&mut self) {
+    /// Implementation is safe, usage is not.
+    /// MAKE SURE YOUR COMMAND'S BYTECODES DOES NOT ALLOCATE ANY MEMORY 
+    pub fn unsafe_free(&mut self) {
         self.allocation = 0;
     }
 }
@@ -86,18 +106,18 @@ impl Command {
 /// Encode value to parameter encoding.
 /// Use for encoding constant value or encoding address to variable directly.
 /// Use `Command::allocate` if you don't want to track current stack address.
-pub fn encode(encoding: Encoding) -> Result<Vec<u8>, IntErrorKind> {
+pub fn encode(encoding: Encoding) -> Result<Vec<u8>, ValError> {
 let mut bytes: Vec<u8> = vec![];
     let mut head: u8 = 0;
     match encoding {
         Encoding::LC0(val) => {
-            if val > 31 { return Err(IntErrorKind::PosOverflow) }
-            if val < -31 { return Err(IntErrorKind::NegOverflow) }
+            if val > 31 { return Err(ValError::PosOverflow(val as u32, 31)) }
+            if val < -31 { return Err(ValError::NegOverflow(val as i32, -31)) }
             if val < 0 { head += 1 << 5;}
             head += (val.abs() & 0b11111) as u8
         }
         Encoding::GV0(val) | Encoding::LV0(val) => {
-            if val > 31 { return Err(IntErrorKind::PosOverflow) }
+            if val > 31 { return Err(ValError::PosOverflow(val as u32, 31)) }
             head += 1 << 6;
             if let Encoding::GV0(_) = encoding { head += 1 << 5; }
             head += val & 0b11111;
@@ -108,22 +128,22 @@ let mut bytes: Vec<u8> = vec![];
         _ => { head += 1 << 7; }
     }
     bytes.push(head);
-    let res: Result<Vec<u8>, IntErrorKind> = match encoding {
+    let res: Result<Vec<u8>, ValError> = match encoding {
         Encoding::LC1(val) => { 
             head += 1;
-            if val == i8::MIN { return Err(IntErrorKind::NegOverflow) }
+            if val == i8::MIN { return Err(ValError::NegOverflow(val as i32, i8::MIN as i32)) }
             if val < 0 { head += 1 << 5; }
             Ok((val.abs() & i8::MAX).to_le_bytes().to_vec())
         }
         Encoding::LC2(val) => {
             head += 2;
-            if val == i16::MIN { return Err(IntErrorKind::NegOverflow) }
+            if val == i16::MIN { return Err(ValError::NegOverflow(val as i32, i16::MIN as i32)) }
             if val < 0 { head += 1 << 5; }
             Ok((val.abs() & i16::MAX).to_le_bytes().to_vec())
         }
         Encoding::LC4(val) => {
             head += 3;
-            if val == i32::MIN { return Err(IntErrorKind::NegOverflow) }
+            if val == i32::MIN { return Err(ValError::NegOverflow(val, i32::MIN)) }
             if val < 0 { head += 1 << 5; }
             Ok((val.abs() & i32::MAX).to_le_bytes().to_vec())
         }
@@ -154,7 +174,7 @@ let mut bytes: Vec<u8> = vec![];
 impl Command {
     /// Create variable bytecode and allocate space
     /// `global` - Allocate global variable
-    pub fn allocate(&mut self, data: DataType, global: bool) -> Result<Vec<u8>, IntErrorKind> {
+    pub fn allocate(&mut self, data: DataType, global: bool) -> Result<Vec<u8>, ValError> {
         let local: u8 = (self.allocation >> 10) as u8;
         let glob: u16 = self.allocation & ((1 << 10) - 1);
         let address: u16 = if global { local.into() } else { glob };
@@ -162,9 +182,10 @@ impl Command {
             DataType::DATA8 => 1,
             DataType::DATA16 => 2,
             DataType::DATA32 | DataType::DATAF => 4,
+            DataType::DATAN(length) => u16::try_from(length).unwrap()
         };
-        if local + (mem as u8) > (1 << 6) - 1 { return Err(IntErrorKind::PosOverflow) }
-        if glob + mem > (1 << 10) - 1 { return Err(IntErrorKind::PosOverflow) }
+        if local + (mem as u8) > (1 << 6) - 1 { return Err(ValError::MemOverflow(mem, local as u16, (1 << 6) - 1, "local".to_string())); }
+        if glob + mem > (1 << 10) - 1 { return Err(ValError::MemOverflow(mem, glob, (1 << 10) - 1, "global".to_string())); }
         self.allocation += if global { mem } else { mem << 10 };
         match address {
             0..=31 => {
