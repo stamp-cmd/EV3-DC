@@ -1,8 +1,10 @@
-//! Command generation function
+//! Command generation function.
+//! Not all command will be here, only some of them.
 
 use crate::{ encode, Command, DataType, Encoding::*, ValError };
 use crate::utils::ChainByte;
 
+/// LED Color
 pub enum LedColor {
    Red,
    Orange,
@@ -10,13 +12,13 @@ pub enum LedColor {
    Off
 }
 
+/// LED Animation
 pub enum LedEffect {
     Static,
     Blink,
     Pulse
 }
 
-// TODO: Create custom error
 /// Rotate motor with speed
 pub fn motor_speed(port: u8, speed: i8, layer: u8) -> Result<Vec<u8>, ValError> {
     if port > 15 { return Err(ValError::InvalidRange(port as i32, 0, 15)); }
@@ -52,7 +54,7 @@ pub fn stop_motor(port: u16, layer: u8, hard: bool) -> Result<Vec<u8>, ValError>
 pub fn battery_percentage(cmd: &mut Command) -> Result<(Vec<u8>, Vec<DataType>), ValError> {
     let mut byte = ChainByte::new();
     byte.add(vec![0x81, 0x12])
-        .add(cmd.allocate(DataType::DATA8, false)?);
+        .add(cmd.allocate(DataType::DATA8, true)?);
     Ok((byte.bytes, vec![DataType::DATA8]))
 }
 

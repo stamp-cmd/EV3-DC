@@ -1,6 +1,7 @@
 //! Module for parsing direct reply
 use crate::DataType;
 
+/// Reply object
 pub struct Reply {
     length: u16,
     id: u16,
@@ -17,18 +18,23 @@ impl Reply {
         let mem = packet[5..].to_vec();
         Reply { length: len, id: rid, error: err, memory: mem }
     }
+    /// Get reply's length excluding first 2 bytes
     pub fn length(&self) -> u16 { self.length }
+    /// Get reply's id. Command and reply match up if they have same id
     pub fn id(&self) -> u16 { self.id }
+    /// Check reply's error
     pub fn error(&self) -> bool { self.error }
-    pub fn memory(&self) -> &Vec<u8> { &self.memory }
+    /// Get reply's global memory
+    pub fn memory(&self) -> &[u8] { &self.memory }
 }
 
-pub fn extract_data<T: Iterator<Item = u8>>(bytes: T, dtype: DataType) -> Vec<u8> {
+/// Extract n bytes from specific [`DataType`] 
+pub fn extract_data<T: Iterator<Item = u8>>(bytes: &mut T, dtype: DataType) -> Vec<u8> {
     let len = match dtype {
         DataType::DATA8 => 1,
         DataType::DATA16 => 2,
         DataType::DATA32 | DataType::DATAF => 4,
-        DataType::DATAN(length) => length
+        DataType::DATAN(length) | DataType::DATAS(length) => length,
     };
-    bytes.take(len).collect::<Vec<u8>>()
+    bytes.by_ref().take(len).collect::<Vec<u8>>()
 }

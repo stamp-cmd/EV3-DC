@@ -2,13 +2,15 @@
 name = "ev3-dc"
 version = "0.1.0"
 edition = "2024"
-default-run = "ev3-dc"
+license = "MIT"
+keywords = [ "ev3", "command" ]
+categories = [ "science::robotics" ]
 
 [dependencies]
-hidapi = "2.6.3" 
 thiserror = "2.0.17"
 
-[features]
+[dev-dependencies]
+hidapi = "2.6.3"
 
-[[bin]]
-name = "image"
+# [profile.release]
+# debug = true
