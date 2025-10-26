@@ -1,7 +1,11 @@
 //! Low-level EV3 Direct command library.
 //! Library for direct command bytecode generation and basic direct reply parsing.
 //!
-//! More information about direct commands is available at
+//! By itself, It can allocate memory, create bytecode packet, parsing reply and other utility
+//! functions. Only some ad-hoc functions are available in `funcs`. Other OpCode is documented at Firmware Developer Kit.
+//! This library cannot prevent value overflow for any specific OpCode, only the parameter and command itself.
+//!
+//! More information about direct commands and bytecode is available at
 //! [LEGO MINDSTORMS Firmware Developer Kit](https://assets.education.lego.com/v3/assets/blt293eea581807678a/blt09ac3101d9df2051/5f88037a69efd81ab4debf2e/lego-mindstorms-ev3-communication-developer-kit.pdf?locale=en-us)
 //!
 //! # Example
@@ -22,7 +26,9 @@ pub mod utils;
 pub mod parser;
 pub mod funcs;
 
-/// EV3 DataType. DATAN is for custom array
+/// EV3 DataType.
+///
+/// DATAN is for custom array
 pub enum DataType {
     /// 8-bits value
     DATA8,
@@ -38,6 +44,8 @@ pub enum DataType {
     DATAS(usize)
 }
 
+/// Parameter encoding
+///
 /// LCx: Local constant value
 ///
 /// LVx: Local variable address
@@ -45,6 +53,8 @@ pub enum DataType {
 /// GVx: Global variable address
 ///
 /// GV4 & LV4 & LV2 are unusable in direct command
+/// 
+/// There is [`utils::auto_const`] for automatic integer encoding
 pub enum Encoding<'a> {
     /// 5-bits constant 
     LC0(i8),
@@ -163,6 +173,7 @@ impl Command {
 /// For encoding constant value or encoding address to variable directly.
 /// Use [`Command::allocate`] to encode variable without specifying pointer directly
 /// # Example
+/// Encode local constant as LC1 bytecode with value of 42
 /// ```
 /// let byte: Vec<u8> = encode(LC1(42)).unwrap();
 /// println("Bytecode: {:02X?}", byte);

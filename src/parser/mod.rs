@@ -1,4 +1,13 @@
 //! Module for parsing direct reply
+//!
+//! # Example
+//! Show information about reply
+//! ```
+//! let buf: Vec<u8> = vec![]; // Direct reply vector
+//! let rep = Reply::parse(&buf);
+//! println!("Length: {}, Id: {}, Error: {}, Memory: {:?}", rep.length(), rep.id(), rep.error(), rep.memory());
+//! ```
+
 use crate::DataType;
 
 /// Reply object

@@ -1,5 +1,7 @@
 //! Command generation function.
 //! Not all command will be here, only some of them.
+//!
+//! Any functions that require [`Command`], will return (`Vec<u8>`, `Vec<`[`DataType`]`>`)
 
 use crate::{ encode, Command, DataType, Encoding::*, ValError };
 use crate::utils::ChainByte;

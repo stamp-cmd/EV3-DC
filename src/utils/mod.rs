@@ -8,11 +8,13 @@ use super::{ Encoding::*, encode, ValError };
 #[derive(Default)]
 /// Chainable byte vector
 /// # Example
+/// Create u8 vector with chainable method to modify value
 /// ```
-/// let mut byte = ChainByte::new();
-/// byte.push(0x81)
-///     .add(vec![0x1B, 0x00])
-/// println!("Vector: {:02X?}", byte.bytes);
+/// // Compared to standard rust vector operation
+/// let mut byte = ChainByte::new(); // let mut byte: Vec<u8> = vec![];
+/// byte.push(0x81) // byte.push(0x81);
+///     .add(vec![0x1B, 0x00]) // byte.extend(vec![0x1B, 0x00]);
+/// println!("Vector: {:02X?}", byte.bytes); // println!("Vector: {:02X?}", byte);
 /// ```
 // i kinda forgot why i created this
 pub struct ChainByte {
@@ -22,7 +24,7 @@ pub struct ChainByte {
 
 const LEN_MAX: usize = 1000; // LIMIT: Practical limit is 1000 for some reason.
 
-// maybe use velcro or vek instead
+// maybe use velcro crate instead
 impl ChainByte {
     pub fn new() -> Self {
         ChainByte { bytes: vec![] }
@@ -98,6 +100,14 @@ pub fn run_length(image: &[u8]) -> Result<Vec<(u8, u8, u8, u8)>, ValError> {
 }
 
 /// Convert vector of points from [`run_length`] to direct commands
+/// # Example
+/// create RLE line vector from 178x128 binary vector and create line bytecode
+/// ```
+/// let img: [u8; 22784] = [1; 22784]; // add stuff here
+/// let lines = run_length(&img).unwrap();
+/// let code = printer(&lines);
+/// println("Bytecode: {:02X?}", code);
+/// ```
 pub fn printer(lines: &[(u8, u8, u8, u8)]) -> Vec<Vec<u8>> {
     let mut packets: Vec<Vec<u8>> = vec![];
     for line in lines {
@@ -137,6 +147,13 @@ pub fn device_id(byte: u8) -> String {
 }
 
 /// Read port from u8 slice. 0-3 are inputs, 4-7 are outputs
+/// # Example
+/// read ports of the master / first EV3 brick
+/// ```
+/// let buf: [u8; 32] = [0x7E, 0X7E, 0x08]; // Reply memory from opInput_Device_List OpCode
+/// let res: [u8; 8] = port_read(&buf, 0);
+/// println!("Input device ids: {:?}, Output device ids: {:?}", res[0..4], res[4..8]);
+/// ```
 pub fn port_read(port: &[u8], layer: u8) -> Result<[u8; 8], ValError> {
     let mut ports = [0_u8; 8];
     if layer > 3 { return Err(ValError::InvalidRange(layer as i32, 0, 3)) }
