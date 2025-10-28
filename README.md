@@ -40,10 +40,10 @@ println!("RECV: {:?} | SIZE: {}, ID: {}, ERROR: {}, MEMORY: {}", buf, rep.length
 ```
 
 ## Binary
-    All the example program is written for USB communication. Add hidapi to cargo
-    ```bash
-    cargo add hidapi
-    ```
+All the example program is written for USB communication. Add hidapi to cargo
+```bash
+cargo add hidapi
+```
  - `bin/image.rs` Display 178x128 [PBM](https://en.wikipedia.org/wiki/Netpbm#PBM_example) image on EV3 screen
     ```bash
     cargo run --example image example.pbm
