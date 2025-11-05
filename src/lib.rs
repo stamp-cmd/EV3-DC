@@ -21,7 +21,8 @@
 //! // and send actual bytes via HID, or Bluetooth, etc.
 //! ```
 
-use thiserror::Error;
+use std::error::Error;
+use displaystr::display;
 pub mod utils;
 pub mod parser;
 pub mod funcs;
@@ -118,27 +119,25 @@ pub struct Port {
 /// PORT Constants. Add them together to use multiple ports
 pub const PORT: Port = Port { A: 1, B: 2, C: 4, D: 8, ALL: 15};
 
-#[derive(Error, Debug)]
+#[derive(Debug)]
+#[display]
 /// ev3_dc Error type
 pub enum ValError {
     // Error for encoding
     /// [`encode`] failed to encode overflowed value
-    #[error("Encode error: value: {0} overflowed (maximum: {1})")]
-    PosOverflow(u32, u32),
+    PosOverflow(u32, u32) = "Encode Error: Value {_0} overflowed {_1}",
     /// [`encode`] failed to encode underflowed value
-    #[error("Encode error: value: {0} underflowed (minimum: {1})")]
-    NegOverflow(i32, i32),
+    NegOverflow(i32, i32) = "Encode Error: Value {_0} overflowed {_1}",
     // Error for functions
     /// [`Command::allocate`] failed to allocated variable in memory
-    #[error("Allocation error: cannot allocate data with sized {0}. Allocated {3} memory: {1} / {2}")]
-    MemOverflow(u16, u16, u16, String),
-    #[error("Invalid range: expect {1} - {2}, got {0}")]
+    MemOverflow(u16, u16, u16, String) = "Allocation Error: Cannot allocate data with size {_0}. Allocated {_3} byte(s). Memory: {_1}/{_2}",
     /// Value isn't in valid range
-    InvalidRange(i32, i32, i32),
+    InvalidRange(i32, i32, i32) = "Invalid Range: Expect {_1} - {_2} got {_0}",
     /// Value isn't validi
-    #[error("Invalid value: expect {1}, got {0}")]
-    InvalidValue(i32, i32)
+    InvalidValue(i32, i32) = "Invalid Value: Expect {_1} got {_0}"
 }
+
+impl Error for ValError {}
 
 impl Command {
     pub fn new() -> Self { Command::default() }
