@@ -1,10 +1,13 @@
 [package]
 name = "ev3-dc"
 version = "0.1.0"
+description = "Low level EV3 direct command library"
+repository = "https://github.com/stamp-cmd/EV3-DC"
 edition = "2024"
 license = "MIT"
 keywords = [ "ev3", "command" ]
 categories = [ "science::robotics" ]
+readme = "README.md"
 
 [dependencies]
 displaystr = "0.1.11"
