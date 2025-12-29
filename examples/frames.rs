@@ -101,10 +101,11 @@ fn main() {
     // Send commands
     let mut cmd = Command::new();
     let mut byte = ChainByte::new();
-    byte.add(vec![0x84, 0x13])
-        .add(encode(LC0(0)).unwrap())
-        .add(encode(LC0(0)).unwrap())
-        .add(encode(LC0(0)).unwrap())
+    byte
+       // .add(vec![0x84, 0x13])
+       // .add(encode(LC0(0)).unwrap())
+       // .add(encode(LC0(0)).unwrap())
+       // .add(encode(LC0(0)).unwrap())
         .add(vec![0x84, 0x12])
         .add(encode(LC0(0)).unwrap());
     cmd.bytecode = byte.bytes;

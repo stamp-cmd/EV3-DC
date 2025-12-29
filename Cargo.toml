@@ -8,7 +8,7 @@ license = "MIT"
 keywords = [ "ev3", "command" ]
 categories = [ "science::robotics" ]
 readme = "README.md"
-exclude = [ "example.pbm" ]
+exclude = [ "example.pbm", "process.sh" ]
 
 [dependencies]
 displaystr = "0.1.11"
