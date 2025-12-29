@@ -12,6 +12,7 @@ fn comm(packet: &[u8], buffer: &mut [u8], dev: &HidDevice) {
 }
 
 fn main() {
+    // parse PBM file
     let file = fs::File::open(Path::new(&env::args().nth(1).unwrap()))
         .unwrap_or_else(|_| { panic!("File not found: {}", env::args().nth(1).unwrap()) });
     let mut reader = BufReader::new(file);
@@ -28,9 +29,10 @@ fn main() {
     }
     let mut dim = buffer.split(" ").filter(|x| { !x.is_empty() });
     if dim.next().unwrap() != "178" && dim.next().unwrap() != "128" {
-        panic!("File dimension isn't ");
+        panic!("File dimension isn't correct");
     }
     buffer.clear();
+
     let _ = reader.read_to_string(&mut buffer);
     let image: Vec<u8> = buffer.split("").map(|x| { match x { "1" => 1, "0" => 0, _ => 2 } }).filter(|x| { *x != 2 }).collect();
     let hid = HidApi::new().expect("Cannot create HID context!");
@@ -48,6 +50,9 @@ fn main() {
     comm(&cmd.gen_bytes(), &mut buf, &dev);
     let lines = run_length(&image).unwrap();
     let packets = printer(&lines);
+    for h in &packets {
+        println!("? {:?}", h);
+    }
     let packed = package_bytes(&packets);
     for pack in packed {
         cmd.bytecode = pack;

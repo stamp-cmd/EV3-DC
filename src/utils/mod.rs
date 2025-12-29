@@ -16,7 +16,6 @@ use super::{ Encoding::*, encode, ValError };
 ///     .add(vec![0x1B, 0x00]) // byte.extend(vec![0x1B, 0x00]);
 /// println!("Vector: {:02X?}", byte.bytes); // println!("Vector: {:02X?}", byte);
 /// ```
-// i kinda forgot why i created this
 pub struct ChainByte {
     /// Result vector
     pub bytes: Vec<u8>
@@ -59,7 +58,7 @@ pub fn package_bytes(bytecodes: &[Vec<u8>]) -> Vec<Vec<u8>> {
     let mut size: usize = 0;
     for bytes in bytecodes {
        if size + bytes.len() > LEN_MAX {
-            packets.push(buffer.clone()); // seems expensive
+            packets.push(buffer.clone());
             buffer.clear();
             size = 0;
         }
@@ -100,6 +99,7 @@ pub fn run_length(image: &[u8]) -> Result<Vec<(u8, u8, u8, u8)>, ValError> {
 }
 
 /// Convert vector of points from [`run_length`] to direct commands
+/// Return vector of small line / dot bytecodes
 /// # Example
 /// create RLE line vector from 178x128 binary vector and create line bytecode
 /// ```

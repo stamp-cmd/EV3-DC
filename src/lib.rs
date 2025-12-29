@@ -57,13 +57,13 @@ pub enum DataType {
 /// 
 /// There is [`utils::auto_const`] for automatic integer encoding
 pub enum Encoding<'a> {
-    /// 5-bits constant 
+    /// 5-bits constant (-32 - 31)
     LC0(i8),
-    /// 7-bits constant
+    /// 7-bits constant (-127 - 127)
     LC1(i8),
-    /// 15-bits constant 
+    /// 15-bits constant (-32_767 - 32_767)
     LC2(i16),
-    /// 31-bits constant
+    /// 31-bits constant (-2_147_483_647 - 2_147_483_647)
     LC4(i32),
     /// IEEE-754 single precision constant
     LCF(f32),
@@ -71,11 +71,11 @@ pub enum Encoding<'a> {
     LV0(u8),
     /// 7-bits local address
     LV1(u8),
-    /// 5-bits global address 
+    /// 5-bits global address (-32 - 31)
     GV0(u8),
-    /// 7-bits global address
+    /// 7-bits global address (-127 - 127)
     GV1(u8),
-    /// 15-bits global address
+    /// 15-bits global address (-32_767 - 32_767)
     GV2(u16),
     /// String (auto zero-terminated)
     LCS(&'a str),
