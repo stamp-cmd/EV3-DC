@@ -1,13 +1,19 @@
-//! Low-level EV3 Direct command library.
-//! Library for direct command bytecode generation and basic direct reply parsing.
+//! Low-level EV3 Direct Command bytecode generation & Direct Reply parsing library. \
+//! Design to be simple and safe as possible to use.
 //!
-//! By itself, It can allocate memory, create bytecode packet, parsing reply and other utility
-//! functions. Only some ad-hoc functions are available in `funcs`. Other OpCode is documented at Firmware Developer Kit.
-//! This library cannot prevent value overflow for any specific OpCode, only the parameter and command itself.
+//! ### Features:
+//!    - Memory (Variable) allocation
+//!    - Direct Command bytecode generation
+//!    - Direct Reply parsing
+//!    - Parameter encoding
 //!
-//! More information about direct commands and bytecode is available at
-//! [LEGO MINDSTORMS Firmware Developer Kit](https://assets.education.lego.com/v3/assets/blt293eea581807678a/blt09ac3101d9df2051/5f88037a69efd81ab4debf2e/lego-mindstorms-ev3-communication-developer-kit.pdf?locale=en-us)
-//!
+//! ### Extras:
+//!    - Subcommands merging
+//!    - PBM image Run-Length-Encoding
+//!    - Various helper function inside [`funcs`]
+//! 
+//! More information about Direct commands and list of all bytecodes are available at
+//! [MINDSTORMS Firmware Developer Kit](https://assets.education.lego.com/v3/assets/blt293eea581807678a/blt09ac3101d9df2051/5f88037a69efd81ab4debf2e/lego-mindstorms-ev3-communication-developer-kit.pdf?locale=en-us)
 //! # Example
 //! ## Show blinking green LED
 //! ```
@@ -48,24 +54,21 @@ pub enum DataType {
 /// Parameter encoding
 ///
 /// LCx: Local constant value
-///
 /// LVx: Local variable address
-///
 /// GVx: Global variable address
-///
 /// GV4 & LV4 & LV2 are unusable in direct command
 /// 
 /// There is [`utils::auto_const`] for automatic integer encoding
 pub enum Encoding<'a> {
-    /// 5-bits constant (-32 - 31)
+    /// 5-bits constant integer (-32 - 31)
     LC0(i8),
-    /// 7-bits constant (-127 - 127)
+    /// 7-bits constant integer (-127 - 127)
     LC1(i8),
-    /// 15-bits constant (-32_767 - 32_767)
+    /// 15-bits constant integer (-32,767 - 32,767)
     LC2(i16),
-    /// 31-bits constant (-2_147_483_647 - 2_147_483_647)
+    /// 31-bits constant integer (-2,147,483,647 - 2,147,483,647)
     LC4(i32),
-    /// IEEE-754 single precision constant
+    /// IEEE-754 single precision floating point constant
     LCF(f32),
     /// 5-bits local address
     LV0(u8),
@@ -75,14 +78,14 @@ pub enum Encoding<'a> {
     GV0(u8),
     /// 7-bits global address (-127 - 127)
     GV1(u8),
-    /// 15-bits global address (-32_767 - 32_767)
+    /// 15-bits global address (-32,767 - 32,767)
     GV2(u16),
     /// String (auto zero-terminated)
     LCS(&'a str),
 }
 
-/// The packets that get sent to EV3. 
-/// Can contain more than 1 OpCode
+/// Direct Command object.
+/// [`Command::bytecode`] can contains multiple OpCodes
 /// # Example
 /// ```
 /// let mut cmd = Command::new();
@@ -108,6 +111,7 @@ pub const VID: u16 = 0x0694;
 pub const PID: u16 = 0x0005;
 
 #[allow(non_snake_case)]
+#[doc(hidden)]
 /// Port struct. Use defined [`PORT`] constant instead.
 pub struct Port {
     pub A: i8,
@@ -133,7 +137,7 @@ pub enum ValError {
     MemOverflow(u16, u16, u16, String) = "Allocation Error: Cannot allocate data with size {_0}. Allocated {_3} byte(s). Memory: {_1}/{_2}",
     /// Value isn't in valid range
     InvalidRange(i32, i32, i32) = "Invalid Range: Expect {_1} - {_2} got {_0}",
-    /// Value isn't validi
+    /// Value isn't valid
     InvalidValue(i32, i32) = "Invalid Value: Expect {_1} got {_0}"
 }
 
@@ -161,18 +165,19 @@ impl Command {
     pub fn reserved_bytes(&self) -> usize {
         ((self.allocation >> 10) + (self.allocation & ((1 << 10) - 1))) as usize
     }
-    /// Free all allocated memory
+    /// Deallocate bytes from [`Command::allocate`].
+    /// Use this when you want to use same [`Command`]. \
     /// **Causing any variables in bytecode to not work**
     pub fn mem_free(&mut self) {
         self.allocation = 0;
     }
 }
 
-/// Encode value to parameter encoding.
-/// For encoding constant value or encoding address to variable directly.
+/// Encode value to parameter encoding. \
+/// For encoding constant value or encoding address to variable directly. \
 /// Use [`Command::allocate`] to encode variable without specifying pointer directly
 /// # Example
-/// Encode local constant as LC1 bytecode with value of 42
+/// Encode local constant as [`Encoding::LC1`] with value of 42
 /// ```
 /// let byte: Vec<u8> = encode(LC1(42)).unwrap();
 /// println("Bytecode: {:02X?}", byte);
@@ -243,8 +248,8 @@ let mut bytes: Vec<u8> = vec![];
 }
 
 impl Command {
-    /// Create variable bytecode and allocate space in [`Command`]
-    /// Allocating global variables allow the values to be read in reply
+    /// Create variable bytecode and allocate space in [`Command`]. 
+    /// Create global variable for results to be read in reply's bytes
     pub fn allocate(&mut self, data: DataType, global: bool) -> Result<Vec<u8>, ValError> {
         let local: u8 = (self.allocation >> 10) as u8;
         let glob: u16 = self.allocation & ((1 << 10) - 1);
@@ -260,26 +265,17 @@ impl Command {
         if glob + mem > (1 << 10) - 1 { return Err(ValError::MemOverflow(mem, glob, (1 << 10) - 1, "global".to_string())); }
         self.allocation += if global { mem } else { mem << 10 };
         match address {
-            0..=31 => {
-                if global {
-                    encode(Encoding::GV0(address as u8))
-                } else {
-                    encode(Encoding::LV0(address as u8))
-                }
+            0..32 => {
+                if global { encode(Encoding::GV0(address as u8)) }
+                else { encode(Encoding::LV0(address as u8)) }
             }
-            32..=254 => {
-                if global {
-                    encode(Encoding::GV1(address as u8))
-                } else {
-                    encode(Encoding::LV1(address as u8))
-                }
+            32..255 => {
+                if global { encode(Encoding::GV1(address as u8)) }
+                else { encode(Encoding::LV1(address as u8)) }
             }
             _ => {
-                if global {
-                    encode(Encoding::GV2(address))
-                }else {
-                    Err(ValError::PosOverflow(mem.into(), (1 << 7) - 1)) // Shouldn't be called
-                }
+                if global { encode(Encoding::GV2(address)) }
+                else { Err(ValError::PosOverflow(mem.into(), (1 << 7) - 1)) } // Shouldn't be called
             }
         }
     }

@@ -1,3 +1,5 @@
+// Takes in previous frame image and current frame image
+
 use hidapi::{ HidApi, HidDevice };
 use ev3_dc::{ VID, PID, Command, encode, Encoding::* };
 use ev3_dc::utils::{ package_bytes, ChainByte };
@@ -13,12 +15,12 @@ fn send(dev: &HidDevice, data: &[u8], buf: &mut [u8]) {
 }
 
 fn pack(pac: &mut Vec<Vec<u8>>, start: u8, end: u8, y: u8, col: u8) {
-    let mut r: Vec<u8> = vec![0x84, 0x02];
+    let mut r: Vec<u8> = vec![0x84, 0x02]; // opUI_DRAW PIXEL
     r.extend(encode(LC0(col as i8)).unwrap());
     r.extend(encode(LC2(start as i16)).unwrap());
     r.extend(encode(LC2(y as i16)).unwrap());
     if end as i16 - start as i16 > 0 {
-        r[1] = 0x03;
+        r[1] = 0x03; // opUI_DRAW LINE
         r.extend(encode(LC2(end as i16)).unwrap());
         r.extend(encode(LC2(y as i16)).unwrap());
     }
@@ -30,11 +32,7 @@ fn delta(prev: &[u8], next: &[u8]) -> Vec<Vec<u8>> {
     if prev.len() != next.len() || prev.len() != 178 * 128 {
         panic!("Image dimension does not match 178x128!");
     }
-    let mut dif: Vec<u8> = vec![];
-    for i in 0..178 * 128 {
-        if prev[i] == next[i] { dif.push(2); }
-        else { dif.push(next[i]); }
-    }
+
     for y in 0..128 {
         let mut state: u8 = 2;
         let mut start: u8 = 0;
@@ -76,9 +74,10 @@ fn main() {
     let mut read_next = BufReader::new(file_next);
     let mut buffer_prev = String::new();
     let mut buffer_next = String::new();
-    // No extra check, since expecting ffmpeg & pnmtopnm output
+    // Expect ffmpeg & pnmtopnm output
     let _ = read_prev.read_line(&mut buffer_prev);
     let _ = read_next.read_line(&mut buffer_next);
+
     if buffer_prev.trim() != "P1" || buffer_prev != buffer_next {
         panic!("File not ASCII PBM");
     }
@@ -106,8 +105,9 @@ fn main() {
        // .add(encode(LC0(0)).unwrap())
        // .add(encode(LC0(0)).unwrap())
        // .add(encode(LC0(0)).unwrap())
-        .add(vec![0x84, 0x12])
-        .add(encode(LC0(0)).unwrap());
+        .add(vec![0x84, 0x12]) // opUI_Draw TOPLINE(0)
+        .add(encode(LC0(0)).unwrap())
+        .push(0x80); // opUI_Flush
     cmd.bytecode = byte.bytes;
     let mut buf: [u8; 32] = [0; 32];
     send(&dev, &cmd.gen_bytes(), &mut buf);
@@ -121,3 +121,4 @@ fn main() {
     cmd.bytecode = vec![0x84, 0x00];
     send(&dev, &cmd.bytecode, &mut buf);
 }
+

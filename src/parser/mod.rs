@@ -3,7 +3,7 @@
 //! # Example
 //! Show information about reply
 //! ```
-//! let buf: Vec<u8> = vec![]; // Direct reply vector
+//! let buf: Vec<u8> = vec![]; // Direct reply buffer
 //! let rep = Reply::parse(&buf);
 //! println!("Length: {}, Id: {}, Error: {}, Memory: {:?}", rep.length(), rep.id(), rep.error(), rep.memory());
 //! ```
@@ -37,9 +37,9 @@ impl Reply {
     pub fn memory(&self) -> &[u8] { &self.memory }
 }
 
-/// Extract n bytes from specific [`DataType`] 
+/// Extract [`DataType`] sized bytes from array
 pub fn extract_data<T: Iterator<Item = u8>>(bytes: &mut T, dtype: DataType) -> Vec<u8> {
-    let len = match dtype {
+    let len: usize = match dtype {
         DataType::DATA8 => 1,
         DataType::DATA16 => 2,
         DataType::DATA32 | DataType::DATAF => 4,

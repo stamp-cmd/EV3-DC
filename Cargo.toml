@@ -1,6 +1,6 @@
 [package]
 name = "ev3-dc"
-version = "0.1.0"
+version = "0.1.1"
 description = "Low level EV3 direct command library"
 repository = "https://github.com/stamp-cmd/EV3-DC"
 edition = "2024"
@@ -12,10 +12,7 @@ exclude = [ "example.pbm", "process.sh" ]
 
 [dependencies]
 displaystr = "0.1.11"
-# thiserror = "2.0.17"
 
 [dev-dependencies]
 hidapi = "2.6.3"
 
-# [profile.release]
-# debug = true

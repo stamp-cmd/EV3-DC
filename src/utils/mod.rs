@@ -21,6 +21,14 @@ pub struct ChainByte {
     pub bytes: Vec<u8>
 }
 
+#[derive(Clone, Copy)]
+/// Single line struct for RLE
+pub struct Span {
+    pub x1: u8,
+    pub x2: u8,
+    pub y: u8
+}
+
 const LEN_MAX: usize = 1000; // LIMIT: Practical limit is 1000 for some reason.
 
 // maybe use velcro crate instead
@@ -42,6 +50,7 @@ impl ChainByte {
 
 /// Encode local constant based on integer value
 pub fn auto_const(val: i32) -> Result<Vec<u8>, ValError> {
+    if val == -32 { return encode(LC0(val as i8)) }
     match val.abs() {
         0..32 => encode(LC0(val as i8)),
         32..128 => encode(LC1(val as i8)),
@@ -69,28 +78,28 @@ pub fn package_bytes(bytecodes: &[Vec<u8>]) -> Vec<Vec<u8>> {
     packets
 }
 
-/// Run-Length-Encoding on 1D 178x128 image array.
-/// Return (x1, y1, x2, y2) line bytecode.
-pub fn run_length(image: &[u8]) -> Result<Vec<(u8, u8, u8, u8)>, ValError> {
+/// Run-Length-Encoding on 1D 178x128 image array. \
+/// Return opUI_DRAW LINE bytecode.
+pub fn run_length(image: &[u8]) -> Result<Vec<Span>, ValError> {
     if image.len() != (178 * 128) { return Err(ValError::InvalidValue(image.len() as i32, 178 * 128)) } 
-    let mut state;
-    let mut buffer: Vec<(u8, u8, u8, u8)> = vec![];
-    let mut line: (u8, u8, u8, u8) = (0, 0, 0, 0);
+    let mut state: bool;
+    let mut buffer: Vec<Span> = vec![];
+    let mut line: Span = Span { x1: 0, x2: 0, y: 0 };
     for y in 0..128 {
         state = false;
         for x in 0..178 {
             if image[178 * y + x] == 1 && !state {
                 state = true;
-                line.0 = x as u8;
-                line.1 = y as u8;
+                line.x1 = x as u8;
+                line.y = y as u8;
             }else if image[178 * y + x] == 0 && state {
                 state = false;
-                line.2 = (x - 1) as u8;
-                line.3 = y as u8;
+                line.x2 = (x - 1) as u8;
+                line.y = y as u8;
                 buffer.push(line);
             }else if image[178 * y + x] == 1 && x == 177 && state {
-                line.2 = 177;
-                line.3 = y as u8;
+                line.x2 = 177;
+                line.y = y as u8;
                 buffer.push(line);
             }
         }
@@ -98,7 +107,7 @@ pub fn run_length(image: &[u8]) -> Result<Vec<(u8, u8, u8, u8)>, ValError> {
     Ok(buffer)
 }
 
-/// Convert vector of points from [`run_length`] to direct commands
+/// Convert vector of points from [`run_length`] to direct commands. \
 /// Return vector of small line / dot bytecodes
 /// # Example
 /// create RLE line vector from 178x128 binary vector and create line bytecode
@@ -108,20 +117,20 @@ pub fn run_length(image: &[u8]) -> Result<Vec<(u8, u8, u8, u8)>, ValError> {
 /// let code = printer(&lines);
 /// println("Bytecode: {:02X?}", code);
 /// ```
-pub fn printer(lines: &[(u8, u8, u8, u8)]) -> Vec<Vec<u8>> {
+pub fn printer(lines: &[Span]) -> Vec<Vec<u8>> {
     let mut packets: Vec<Vec<u8>> = vec![];
     for line in lines {
         let mut bytecode = ChainByte::new();
-        if line.0 == line.2 {
+        if line.x1 == line.x2 {
             bytecode.add(vec![0x84, 0x02, 0x01])
-                .add(encode(LC2(line.0 as i16)).unwrap())
-                .add(encode(LC2(line.1 as i16)).unwrap());
+                .add(encode(LC2(line.x1 as i16)).unwrap())
+                .add(encode(LC2(line.x2 as i16)).unwrap());
         }else {
             bytecode.add(vec![0x84, 0x03, 0x01])
-                .add(encode(LC2(line.0 as i16)).unwrap())
-                .add(encode(LC2(line.1 as i16)).unwrap())
-                .add(encode(LC2(line.2 as i16)).unwrap())
-                .add(encode(LC2(line.3 as i16)).unwrap());
+                .add(encode(LC2(line.x1 as i16)).unwrap())
+                .add(encode(LC2(line.y as i16)).unwrap())
+                .add(encode(LC2(line.x2 as i16)).unwrap())
+                .add(encode(LC2(line.y as i16)).unwrap());
         }
         packets.push(bytecode.bytes);
     }

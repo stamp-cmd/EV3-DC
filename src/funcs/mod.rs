@@ -1,7 +1,7 @@
-//! Command generation function.
-//! Not all command will be here, only some of them.
+//! Various helper functions.
 //!
-//! Any functions that require [`Command`], will return (`Vec<u8>`, `Vec<`[`DataType`]`>`)
+//! Any functions that return value, will return (`Vec<u8>`, `Vec<`[`DataType`]`>`).
+//! Like TLV
 
 use crate::{ encode, Command, DataType, Encoding::*, ValError };
 use crate::utils::ChainByte;
@@ -82,5 +82,4 @@ pub fn show_led(color: LedColor, effect: LedEffect) -> Vec<u8> {
     byte.add(encode(LC0(code)).unwrap());
     byte.bytes
 }
-
 

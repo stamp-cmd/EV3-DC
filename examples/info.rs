@@ -4,6 +4,9 @@ use ev3_dc::utils::{ ChainByte, read_string, device_id, port_read };
 use ev3_dc::parser::Reply;
 use ev3_dc::funcs::battery_percentage;
 
+const GET_BRICKNAME: [u8; 2] = [0xD3, 0x0D];
+const GET_FW_VER: [u8; 2] = [0x81, 0x0A];
+
 // This function show data transmission
 fn comm(packet: &[u8], buf: &mut [u8], dev: &HidDevice) {
     let _ = dev.write(packet);
@@ -13,14 +16,14 @@ fn comm(packet: &[u8], buf: &mut [u8], dev: &HidDevice) {
 }
 
 fn main() {
-    // Create HID context and open EV3's VendorId & ProductId
+    // Create HID context and open EV3 using VendorId & ProductId
     let hid = HidApi::new().expect("Unable to create HID context");
     let dev = hid.open(VID, PID).expect("EV3 Not found");
     // Create new command
     let mut cmd = Command::new();
     let mut byte = ChainByte::new();
     let mut buf = vec![0_u8; 40];
-    byte.add(vec![0xD3, 0x0D])
+    byte.add(GET_BRICKNAME.to_vec())
         .add(encode(LC0(13)).unwrap()) // `encode(Encoding::*)` is used for allocating local
                                        // constant. (i.e. motor speed, led color)
         .add(cmd.allocate(DATAS(12), true).unwrap()); // `Command.allocate(DataType::*)` is used for
@@ -41,7 +44,7 @@ fn main() {
                                                               // return memory content
     cmd.mem_free(); // Clear allocated memory. Used when reusing same `Command`
     byte = ChainByte::new();
-    byte.add(vec![0x081, 0x0A])
+    byte.add(GET_FW_VER.to_vec())
         .add(encode(LC0(7)).unwrap())
         .add(cmd.allocate(DATAS(6), true).unwrap());
     cmd.bytecode = byte.bytes;
@@ -63,7 +66,7 @@ fn main() {
     comm(&cmd.gen_bytes(), &mut buf, &dev);
     rep = Reply::parse(&buf[..(5 + cmd.reserved_bytes())]);
     let map = ["1", "2", "3", "4", "A", "B", "C", "D"];
-    let ports = port_read(&rep.memory()[..32], 0).unwrap();
+    let ports: [u8; 8] = port_read(&rep.memory()[..32], 0).unwrap();
     for i in 0..8 {
         println!("PORT {}: {}", map[i], device_id(ports[i]))
     }
